@@ -6,8 +6,8 @@
 added: v8.5.0
 changes:
   - version:
-    - REPLACEME
-    pr-url: https://github.com/nodejs/node/pull/35780
+    - vx.x.x
+    pr-url: https://github.com/nodejs/node/pull/35781
     description: Stabilize modules implementation.
   - version:
     - v14.13.0
