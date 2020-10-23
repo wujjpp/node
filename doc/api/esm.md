@@ -6,6 +6,10 @@
 added: v8.5.0
 changes:
   - version:
+    - REPLACEME
+    pr-url: https://github.com/nodejs/node/pull/35780
+    description: Stabilize modules implementation.
+  - version:
     - v14.13.0
     pr-url: https://github.com/nodejs/node/pull/35249
     description: Support for detection of CommonJS named exports.
@@ -29,7 +33,7 @@ changes:
       `"type"` field.
 -->
 
-> Stability: 1 - Experimental
+> Stability: 2 - Stable
 
 ## Introduction
 
@@ -450,6 +454,8 @@ cjs === 'cjs'; // true
 
 ## Experimental JSON modules
 
+> Stability: 1 - Experimental
+
 Currently importing JSON modules are only supported in the `commonjs` mode
 and are loaded using the CJS loader. [WHATWG JSON modules specification][] are
 still being standardized, and are experimentally supported by including the
@@ -480,6 +486,8 @@ node --experimental-json-modules index.mjs # works
 
 ## Experimental Wasm modules
 
+> Stability: 1 - Experimental
+
 Importing Web Assembly modules is supported under the
 `--experimental-wasm-modules` flag, allowing any `.wasm` files to be
 imported as normal modules while also supporting their module imports.
@@ -504,6 +512,8 @@ would provide the exports interface for the instantiation of `module.wasm`.
 
 ## Experimental top-level `await`
 
+> Stability: 1 - Experimental
+
 The `await` keyword may be used in the top level (outside of async functions)
 within modules as per the [ECMAScript Top-Level `await` proposal][].
 
@@ -527,6 +537,8 @@ node b.mjs # works
 ```
 
 ## Experimental loaders
+
+> Stability: 1 - Experimental
 
 **Note: This API is currently being redesigned and will still change.**
 
@@ -1236,6 +1248,8 @@ _internal_, _conditions_)
 > 1. Return the parsed JSON source of the file at _pjsonURL_.
 
 ### Customizing ESM specifier resolution algorithm
+
+> Stability: 1 - Experimental
 
 The current specifier resolution does not support all default behavior of
 the CommonJS loader. One of the behavior differences is automatic resolution
