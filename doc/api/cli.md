@@ -1642,6 +1642,7 @@ $ node --max-old-space-size=1536 index.js
 ```
 
 [Chrome DevTools Protocol]: https://chromedevtools.github.io/devtools-protocol/
+[ECMAScript Module loader]: esm.md#esm_loaders
 [REPL]: repl.md
 [ScriptCoverage]: https://chromedevtools.github.io/devtools-protocol/tot/Profiler#type-ScriptCoverage
 [Source Map]: https://sourcemaps.info/spec.html
@@ -1662,7 +1663,6 @@ $ node --max-old-space-size=1536 index.js
 [debugger]: debugger.md
 [debugging security implications]: https://nodejs.org/en/docs/guides/debugging-getting-started/#security-implications
 [emit_warning]: process.md#process_process_emitwarning_warning_type_code_ctor
-[ECMAScript Module loader]: esm.md#esm_loaders
 [jitless]: https://v8.dev/blog/jitless
 [libuv threadpool documentation]: https://docs.libuv.org/en/latest/threadpool.html
 [remote code execution]: https://www.owasp.org/index.php/Code_Injection
