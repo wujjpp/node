@@ -6,7 +6,7 @@
 added: v8.5.0
 changes:
   - version:
-    - vx.x.x
+    - REPLACEME
     pr-url: https://github.com/nodejs/node/pull/35781
     description: Stabilize modules implementation.
   - version:
@@ -295,9 +295,9 @@ available, provided by static analysis as a convenience for better ecosystem
 compatibility.
 
 Additional experimental flags are available for importing
-[Wasm modules](#esm_experimental_wasm_modules) or
-[JSON modules](#esm_experimental_json_modules). For importing native modules or
-JSON modules unflagged, see [`module.createRequire()`][].
+[Wasm modules](#esm_wasm_modules) or [JSON modules](#esm_json_modules). For
+importing native modules or JSON modules unflagged, see
+[`module.createRequire()`][].
 
 The _specifier_ of an `import` statement (the string after the `from` keyword)
 can either be an URL-style relative path like `'./file.mjs'` or a package name
@@ -452,7 +452,7 @@ const cjs = require('./cjs.cjs');
 cjs === 'cjs'; // true
 ```
 
-## Experimental JSON modules
+## JSON modules
 
 > Stability: 1 - Experimental
 
@@ -484,7 +484,7 @@ node index.mjs # fails
 node --experimental-json-modules index.mjs # works
 ```
 
-## Experimental Wasm modules
+## Wasm modules
 
 > Stability: 1 - Experimental
 
@@ -510,7 +510,7 @@ node --experimental-wasm-modules index.mjs
 
 would provide the exports interface for the instantiation of `module.wasm`.
 
-## Experimental top-level `await`
+## Top-level `await`
 
 > Stability: 1 - Experimental
 
@@ -536,7 +536,7 @@ console.log(five); // Logs `5`
 node b.mjs # works
 ```
 
-## Experimental loaders
+## Loaders
 
 > Stability: 1 - Experimental
 
