@@ -11,14 +11,16 @@
 #include "src/objects/heap-object.h"
 #include "src/objects/internal-index.h"
 #include "src/objects/objects.h"
-#include "torque-generated/bit-fields-tq.h"
-#include "torque-generated/field-offsets-tq.h"
+#include "torque-generated/bit-fields.h"
+#include "torque-generated/field-offsets.h"
 
 // Has to be the last include (doesn't have include guards):
 #include "src/objects/object-macros.h"
 
 namespace v8 {
 namespace internal {
+
+class WasmTypeInfo;
 
 enum InstanceType : uint16_t;
 
@@ -42,7 +44,6 @@ enum InstanceType : uint16_t;
   V(EmbedderDataArray)                 \
   V(EphemeronHashTable)                \
   V(FeedbackCell)                      \
-  V(FeedbackVector)                    \
   V(FreeSpace)                         \
   V(JSApiObject)                       \
   V(JSArrayBuffer)                     \
@@ -105,6 +106,8 @@ enum class ObjectFields {
 };
 
 using MapHandles = std::vector<Handle<Map>>;
+
+#include "torque-generated/src/objects/map-tq.inc"
 
 // All heap objects have a Map that describes their structure.
 //  A Map contains information about:
@@ -595,14 +598,14 @@ class Map : public HeapObject {
                              WriteBarrierMode mode = UPDATE_WRITE_BARRIER);
 
   // [instance descriptors]: describes the object.
-  DECL_GETTER(synchronized_instance_descriptors, DescriptorArray)
-  DECL_GETTER(instance_descriptors, DescriptorArray)
+  DECL_RELAXED_ACCESSORS(instance_descriptors, DescriptorArray)
+  DECL_ACQUIRE_GETTER(instance_descriptors, DescriptorArray)
   V8_EXPORT_PRIVATE void SetInstanceDescriptors(Isolate* isolate,
                                                 DescriptorArray descriptors,
                                                 int number_of_own_descriptors);
 
   // [layout descriptor]: describes the object layout.
-  DECL_ACCESSORS(layout_descriptor, LayoutDescriptor)
+  DECL_RELEASE_ACQUIRE_ACCESSORS(layout_descriptor, LayoutDescriptor)
   // |layout descriptor| accessor which can be used from GC.
   inline LayoutDescriptor layout_descriptor_gc_safe() const;
   inline bool HasFastPointerLayout() const;
@@ -863,8 +866,7 @@ class Map : public HeapObject {
 
   // Returns true if given field is unboxed double.
   inline bool IsUnboxedDoubleField(FieldIndex index) const;
-  inline bool IsUnboxedDoubleField(const Isolate* isolate,
-                                   FieldIndex index) const;
+  inline bool IsUnboxedDoubleField(IsolateRoot isolate, FieldIndex index) const;
 
   void PrintMapDetails(std::ostream& os);
 
@@ -978,8 +980,7 @@ class Map : public HeapObject {
       MaybeHandle<Object> new_value);
 
   // Use the high-level instance_descriptors/SetInstanceDescriptors instead.
-  inline void set_synchronized_instance_descriptors(
-      DescriptorArray value, WriteBarrierMode mode = UPDATE_WRITE_BARRIER);
+  DECL_RELEASE_SETTER(instance_descriptors, DescriptorArray)
 
   static const int kFastPropertiesSoftLimit = 12;
   static const int kMaxFastProperties = 128;
@@ -1008,7 +1009,7 @@ class NormalizedMapCache : public WeakFixedArray {
   DECL_VERIFIER(NormalizedMapCache)
 
  private:
-  friend bool HeapObject::IsNormalizedMapCache(const Isolate* isolate) const;
+  friend bool HeapObject::IsNormalizedMapCache(IsolateRoot isolate) const;
 
   static const int kEntries = 64;
 

@@ -13,6 +13,7 @@
 #include "src/objects/name.h"
 #include "src/objects/smi.h"
 #include "src/strings/unicode-decoder.h"
+#include "torque-generated/field-offsets.h"
 
 // Has to be the last include (doesn't have include guards):
 #include "src/objects/object-macros.h"
@@ -79,6 +80,8 @@ class StringShape {
   inline void set_valid() {}
 #endif
 };
+
+#include "torque-generated/src/objects/string-tq.inc"
 
 // The String abstract class captures JavaScript string values:
 //
@@ -721,6 +724,8 @@ class ExternalString : public String {
   static const int kUncachedSize =
       kResourceOffset + FIELD_SIZE(kResourceOffset);
 
+  inline void AllocateExternalPointerEntries(Isolate* isolate);
+
   // Return whether the external string data pointer is not cached.
   inline bool is_uncached() const;
   // Size in bytes of the external payload.
@@ -729,8 +734,8 @@ class ExternalString : public String {
   // Used in the serializer/deserializer.
   DECL_GETTER(resource_as_address, Address)
   inline void set_address_as_resource(Isolate* isolate, Address address);
-  inline uint32_t resource_as_uint32();
-  inline void set_uint32_as_resource(Isolate* isolate, uint32_t value);
+  inline uint32_t GetResourceRefForDeserialization();
+  inline void SetResourceRefForSerialization(uint32_t ref);
 
   // Disposes string's resource object if it has not already been disposed.
   inline void DisposeResource(Isolate* isolate);
@@ -755,6 +760,7 @@ class ExternalOneByteString : public ExternalString {
   // It is assumed that the previous resource is null. If it is not null, then
   // it is the responsability of the caller the handle the previous resource.
   inline void SetResource(Isolate* isolate, const Resource* buffer);
+
   // Used only during serialization.
   inline void set_resource(Isolate* isolate, const Resource* buffer);
 
@@ -796,6 +802,7 @@ class ExternalTwoByteString : public ExternalString {
   // It is assumed that the previous resource is null. If it is not null, then
   // it is the responsability of the caller the handle the previous resource.
   inline void SetResource(Isolate* isolate, const Resource* buffer);
+
   // Used only during serialization.
   inline void set_resource(Isolate* isolate, const Resource* buffer);
 
@@ -832,7 +839,6 @@ class ExternalTwoByteString : public ExternalString {
 class V8_EXPORT_PRIVATE FlatStringReader : public Relocatable {
  public:
   FlatStringReader(Isolate* isolate, Handle<String> str);
-  FlatStringReader(Isolate* isolate, Vector<const char> input);
   void PostGarbageCollection() override;
   inline uc32 Get(int index);
   template <typename Char>
@@ -840,7 +846,7 @@ class V8_EXPORT_PRIVATE FlatStringReader : public Relocatable {
   int length() { return length_; }
 
  private:
-  Address* str_;
+  Handle<String> str_;
   bool is_one_byte_;
   int length_;
   const void* start_;

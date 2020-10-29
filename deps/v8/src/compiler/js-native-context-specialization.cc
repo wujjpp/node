@@ -136,13 +136,13 @@ base::Optional<size_t> JSNativeContextSpecialization::GetMaxStringLength(
   }
 
   HeapObjectMatcher matcher(node);
-  if (matcher.HasValue() && matcher.Ref(broker).IsString()) {
+  if (matcher.HasResolvedValue() && matcher.Ref(broker).IsString()) {
     StringRef input = matcher.Ref(broker).AsString();
     return input.length();
   }
 
   NumberMatcher number_matcher(node);
-  if (number_matcher.HasValue()) {
+  if (number_matcher.HasResolvedValue()) {
     return kBase10MaximalLength + 1;
   }
 
@@ -157,7 +157,7 @@ Reduction JSNativeContextSpecialization::ReduceJSToString(Node* node) {
   Reduction reduction;
 
   HeapObjectMatcher matcher(input);
-  if (matcher.HasValue() && matcher.Ref(broker()).IsString()) {
+  if (matcher.HasResolvedValue() && matcher.Ref(broker()).IsString()) {
     reduction = Changed(input);  // JSToString(x:string) => x
     ReplaceWithValue(node, reduction.replacement());
     return reduction;
@@ -168,9 +168,9 @@ Reduction JSNativeContextSpecialization::ReduceJSToString(Node* node) {
   // so alternative approach should be designed if this causes performance
   // regressions and the stronger optimization should be re-implemented.
   NumberMatcher number_matcher(input);
-  if (number_matcher.HasValue()) {
-    const StringConstantBase* base =
-        shared_zone()->New<NumberToStringConstant>(number_matcher.Value());
+  if (number_matcher.HasResolvedValue()) {
+    const StringConstantBase* base = shared_zone()->New<NumberToStringConstant>(
+        number_matcher.ResolvedValue());
     reduction =
         Replace(graph()->NewNode(common()->DelayedStringConstant(base)));
     ReplaceWithValue(node, reduction.replacement());
@@ -186,11 +186,12 @@ JSNativeContextSpecialization::CreateDelayedStringConstant(Node* node) {
     return StringConstantBaseOf(node->op());
   } else {
     NumberMatcher number_matcher(node);
-    if (number_matcher.HasValue()) {
-      return shared_zone()->New<NumberToStringConstant>(number_matcher.Value());
+    if (number_matcher.HasResolvedValue()) {
+      return shared_zone()->New<NumberToStringConstant>(
+          number_matcher.ResolvedValue());
     } else {
       HeapObjectMatcher matcher(node);
-      if (matcher.HasValue() && matcher.Ref(broker()).IsString()) {
+      if (matcher.HasResolvedValue() && matcher.Ref(broker()).IsString()) {
         StringRef s = matcher.Ref(broker()).AsString();
         return shared_zone()->New<StringLiteral>(
             s.object(), static_cast<size_t>(s.length()));
@@ -208,7 +209,7 @@ bool IsStringConstant(JSHeapBroker* broker, Node* node) {
   }
 
   HeapObjectMatcher matcher(node);
-  return matcher.HasValue() && matcher.Ref(broker).IsString();
+  return matcher.HasResolvedValue() && matcher.Ref(broker).IsString();
 }
 }  // namespace
 
@@ -352,7 +353,7 @@ Reduction JSNativeContextSpecialization::ReduceJSGetSuperConstructor(
 
   // Check if the input is a known JSFunction.
   HeapObjectMatcher m(constructor);
-  if (!m.HasValue()) return NoChange();
+  if (!m.HasResolvedValue()) return NoChange();
   JSFunctionRef function = m.Ref(broker()).AsJSFunction();
   MapRef function_map = function.map();
   if (should_disallow_heap_access() && !function_map.serialized_prototype()) {
@@ -389,7 +390,7 @@ Reduction JSNativeContextSpecialization::ReduceJSInstanceOf(Node* node) {
   // we have feedback from the InstanceOfIC.
   Handle<JSObject> receiver;
   HeapObjectMatcher m(constructor);
-  if (m.HasValue() && m.Ref(broker()).IsJSObject()) {
+  if (m.HasResolvedValue() && m.Ref(broker()).IsJSObject()) {
     receiver = m.Ref(broker()).AsJSObject().object();
   } else if (p.feedback().IsValid()) {
     ProcessedFeedback const& feedback =
@@ -594,7 +595,7 @@ Reduction JSNativeContextSpecialization::ReduceJSHasInPrototypeChain(
   // Check if we can constant-fold the prototype chain walk
   // for the given {value} and the {prototype}.
   HeapObjectMatcher m(prototype);
-  if (m.HasValue()) {
+  if (m.HasResolvedValue()) {
     InferHasInPrototypeChainResult result =
         InferHasInPrototypeChain(value, effect, m.Ref(broker()));
     if (result != kMayBeInPrototypeChain) {
@@ -615,7 +616,7 @@ Reduction JSNativeContextSpecialization::ReduceJSOrdinaryHasInstance(
 
   // Check if the {constructor} is known at compile time.
   HeapObjectMatcher m(constructor);
-  if (!m.HasValue()) return NoChange();
+  if (!m.HasResolvedValue()) return NoChange();
 
   if (m.Ref(broker()).IsJSBoundFunction()) {
     // OrdinaryHasInstance on bound functions turns into a recursive invocation
@@ -681,7 +682,7 @@ Reduction JSNativeContextSpecialization::ReduceJSPromiseResolve(Node* node) {
 
   // Check if the {constructor} is the %Promise% function.
   HeapObjectMatcher m(constructor);
-  if (!m.HasValue() ||
+  if (!m.HasResolvedValue() ||
       !m.Ref(broker()).equals(native_context().promise_function())) {
     return NoChange();
   }
@@ -1066,18 +1067,25 @@ Reduction JSNativeContextSpecialization::ReduceMinimorphicPropertyAccess(
               : SerializationPolicy::kSerializeIfNeeded);
   if (access_info.IsInvalid()) return NoChange();
 
+  // The dynamic map check operator loads the feedback vector from the
+  // function's frame, so we can only use this for non-inlined functions.
+  // TODO(rmcilroy): Add support for using a trampoline like LoadICTrampoline
+  // and otherwise pass feedback vector explicitly if we need support for
+  // inlined functions.
+  // TODO(rmcilroy): Ideally we would check whether we are have an inlined frame
+  // state here, but there isn't a good way to distinguish inlined from OSR
+  // framestates.
+  DCHECK(broker()->is_turboprop());
+
   PropertyAccessBuilder access_builder(jsgraph(), broker(), nullptr);
   CheckMapsFlags flags = CheckMapsFlag::kNone;
   if (feedback.has_migration_target_maps()) {
     flags |= CheckMapsFlag::kTryMigrateInstance;
   }
-  effect = graph()->NewNode(
-      simplified()->DynamicCheckMaps(
-          flags, feedback.handler(), source,
-          feedback.is_monomorphic()
-              ? DynamicCheckMapsParameters::ICState::kMonomorphic
-              : DynamicCheckMapsParameters::ICState::kPolymorphic),
-      receiver, effect, control);
+  effect =
+      graph()->NewNode(simplified()->DynamicCheckMaps(flags, feedback.handler(),
+                                                      feedback.map(), source),
+                       receiver, effect, control);
   value = access_builder.BuildMinimorphicLoadDataField(
       feedback.name(), access_info, receiver, &effect, &control);
 
@@ -1380,7 +1388,7 @@ Reduction JSNativeContextSpecialization::ReduceJSLoadNamed(Node* node) {
 
   // Check if we have a constant receiver.
   HeapObjectMatcher m(receiver);
-  if (m.HasValue()) {
+  if (m.HasResolvedValue()) {
     ObjectRef object = m.Ref(broker());
     if (object.IsJSFunction() &&
         name.equals(ObjectRef(broker(), factory()->prototype_string()))) {
@@ -1548,7 +1556,7 @@ namespace {
 base::Optional<JSTypedArrayRef> GetTypedArrayConstant(JSHeapBroker* broker,
                                                       Node* receiver) {
   HeapObjectMatcher m(receiver);
-  if (!m.HasValue()) return base::nullopt;
+  if (!m.HasResolvedValue()) return base::nullopt;
   ObjectRef object = m.Ref(broker);
   if (!object.IsJSTypedArray()) return base::nullopt;
   JSTypedArrayRef typed_array = object.AsJSTypedArray();
@@ -1852,7 +1860,7 @@ Reduction JSNativeContextSpecialization::ReduceElementLoadFromHeapConstant(
   // constant-fold the load.
   NumberMatcher mkey(key);
   if (mkey.IsInteger() && mkey.IsInRange(0.0, kMaxUInt32 - 1.0)) {
-    uint32_t index = static_cast<uint32_t>(mkey.Value());
+    uint32_t index = static_cast<uint32_t>(mkey.ResolvedValue());
     base::Optional<ObjectRef> element =
         receiver_ref.GetOwnConstantElement(index);
     if (!element.has_value() && receiver_ref.IsJSArray()) {
@@ -2011,18 +2019,17 @@ Reduction JSNativeContextSpecialization::ReduceJSLoadPropertyWithEnumeratedKey(
 
   DCHECK_EQ(IrOpcode::kJSLoadProperty, node->opcode());
   Node* receiver = NodeProperties::GetValueInput(node, 0);
-  Node* name = NodeProperties::GetValueInput(node, 1);
-  DCHECK_EQ(IrOpcode::kJSForInNext, name->opcode());
+  JSForInNextNode name(NodeProperties::GetValueInput(node, 1));
   Node* effect = NodeProperties::GetEffectInput(node);
   Node* control = NodeProperties::GetControlInput(node);
 
-  if (ForInModeOf(name->op()) != ForInMode::kUseEnumCacheKeysAndIndices) {
+  if (name.Parameters().mode() != ForInMode::kUseEnumCacheKeysAndIndices) {
     return NoChange();
   }
 
-  Node* object = NodeProperties::GetValueInput(name, 0);
-  Node* enumerator = NodeProperties::GetValueInput(name, 2);
-  Node* key = NodeProperties::GetValueInput(name, 3);
+  Node* object = name.receiver();
+  Node* cache_type = name.cache_type();
+  Node* index = name.index();
   if (object->opcode() == IrOpcode::kJSToObject) {
     object = NodeProperties::GetValueInput(object, 0);
   }
@@ -2036,7 +2043,7 @@ Reduction JSNativeContextSpecialization::ReduceJSLoadPropertyWithEnumeratedKey(
         graph()->NewNode(simplified()->LoadField(AccessBuilder::ForMap()),
                          receiver, effect, control);
     Node* check = graph()->NewNode(simplified()->ReferenceEqual(), receiver_map,
-                                   enumerator);
+                                   cache_type);
     effect =
         graph()->NewNode(simplified()->CheckIf(DeoptimizeReason::kWrongMap),
                          check, effect, control);
@@ -2044,7 +2051,7 @@ Reduction JSNativeContextSpecialization::ReduceJSLoadPropertyWithEnumeratedKey(
 
   // Load the enum cache indices from the {cache_type}.
   Node* descriptor_array = effect = graph()->NewNode(
-      simplified()->LoadField(AccessBuilder::ForMapDescriptors()), enumerator,
+      simplified()->LoadField(AccessBuilder::ForMapDescriptors()), cache_type,
       effect, control);
   Node* enum_cache = effect = graph()->NewNode(
       simplified()->LoadField(AccessBuilder::ForDescriptorArrayEnumCache()),
@@ -2063,10 +2070,10 @@ Reduction JSNativeContextSpecialization::ReduceJSLoadPropertyWithEnumeratedKey(
       control);
 
   // Determine the key from the {enum_indices}.
-  key = effect = graph()->NewNode(
+  Node* key = effect = graph()->NewNode(
       simplified()->LoadElement(
           AccessBuilder::ForFixedArrayElement(PACKED_SMI_ELEMENTS)),
-      enum_indices, key, effect, control);
+      enum_indices, index, effect, control);
 
   // Load the actual field value.
   Node* value = effect = graph()->NewNode(simplified()->LoadFieldByIndex(),
@@ -2520,8 +2527,8 @@ Reduction JSNativeContextSpecialization::ReduceJSStoreDataPropertyInLiteral(
   if (!p.feedback().IsValid()) return NoChange();
 
   NumberMatcher mflags(n.flags());
-  CHECK(mflags.HasValue());
-  DataPropertyInLiteralFlags cflags(mflags.Value());
+  CHECK(mflags.HasResolvedValue());
+  DataPropertyInLiteralFlags cflags(mflags.ResolvedValue());
   DCHECK(!(cflags & DataPropertyInLiteralFlag::kDontEnum));
   if (cflags & DataPropertyInLiteralFlag::kSetFunctionName) return NoChange();
 
@@ -3367,7 +3374,7 @@ bool JSNativeContextSpecialization::InferReceiverMaps(
 base::Optional<MapRef> JSNativeContextSpecialization::InferReceiverRootMap(
     Node* receiver) const {
   HeapObjectMatcher m(receiver);
-  if (m.HasValue()) {
+  if (m.HasResolvedValue()) {
     MapRef map = m.Ref(broker()).map();
     return map.FindRootMap();
   } else if (m.IsJSCreate()) {

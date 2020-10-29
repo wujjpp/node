@@ -4,6 +4,7 @@
 
 #include "src/objects/string.h"
 
+#include "src/common/assert-scope.h"
 #include "src/common/globals.h"
 #include "src/handles/handles-inl.h"
 #include "src/heap/heap-inl.h"
@@ -42,6 +43,7 @@ Handle<String> String::SlowFlatten(Isolate* isolate, Handle<ConsString> cons,
   }
 
   DCHECK(AllowHeapAllocation::IsAllowed());
+  DCHECK(AllowGarbageCollection::IsAllowed());
   int length = cons->length();
   allocation =
       ObjectInYoungGeneration(*cons) ? allocation : AllocationType::kOld;
@@ -115,17 +117,16 @@ void String::MakeThin(Isolate* isolate, String internalized) {
   bool has_pointers = StringShape(*this).IsIndirect();
 
   int old_size = this->Size();
-  // Slot invalidation is not necessary here: ThinString only stores tagged
-  // value, so it can't store an untagged value in a recorded slot.
-  isolate->heap()->NotifyObjectLayoutChange(*this, no_gc,
-                                            InvalidateRecordedSlots::kNo);
   bool one_byte = internalized.IsOneByteRepresentation();
   Handle<Map> map = one_byte ? isolate->factory()->thin_one_byte_string_map()
                              : isolate->factory()->thin_string_map();
+  // Update actual first and then do release store on the map word. This ensures
+  // that the concurrent marker will read the pointer when visiting a
+  // ThinString.
+  ThinString thin = ThinString::unchecked_cast(*this);
+  thin.set_actual(internalized);
   DCHECK_GE(old_size, ThinString::kSize);
   this->synchronized_set_map(*map);
-  ThinString thin = ThinString::cast(*this);
-  thin.set_actual(internalized);
   Address thin_end = thin.address() + ThinString::kSize;
   int size_delta = old_size - ThinString::kSize;
   if (size_delta != 0) {
@@ -196,6 +197,7 @@ bool String::MakeExternal(v8::String::ExternalStringResource* resource) {
   this->synchronized_set_map(new_map);
 
   ExternalTwoByteString self = ExternalTwoByteString::cast(*this);
+  self.AllocateExternalPointerEntries(isolate);
   self.SetResource(isolate, resource);
   isolate->heap()->RegisterExternalString(*this);
   if (is_internalized) self.Hash();  // Force regeneration of the hash value.
@@ -266,6 +268,7 @@ bool String::MakeExternal(v8::String::ExternalOneByteStringResource* resource) {
   this->synchronized_set_map(new_map);
 
   ExternalOneByteString self = ExternalOneByteString::cast(*this);
+  self.AllocateExternalPointerEntries(isolate);
   self.SetResource(isolate, resource);
   isolate->heap()->RegisterExternalString(*this);
   if (is_internalized) self.Hash();  // Force regeneration of the hash value.
@@ -1508,24 +1511,15 @@ int ExternalString::ExternalPayloadSize() const {
 }
 
 FlatStringReader::FlatStringReader(Isolate* isolate, Handle<String> str)
-    : Relocatable(isolate), str_(str.location()), length_(str->length()) {
+    : Relocatable(isolate), str_(str), length_(str->length()) {
   PostGarbageCollection();
 }
 
-FlatStringReader::FlatStringReader(Isolate* isolate, Vector<const char> input)
-    : Relocatable(isolate),
-      str_(nullptr),
-      is_one_byte_(true),
-      length_(input.length()),
-      start_(input.begin()) {}
-
 void FlatStringReader::PostGarbageCollection() {
-  if (str_ == nullptr) return;
-  Handle<String> str(str_);
-  DCHECK(str->IsFlat());
+  DCHECK(str_->IsFlat());
   DisallowHeapAllocation no_gc;
   // This does not actually prevent the vector from being relocated later.
-  String::FlatContent content = str->GetFlatContent(no_gc);
+  String::FlatContent content = str_->GetFlatContent(no_gc);
   DCHECK(content.IsFlat());
   is_one_byte_ = content.IsOneByte();
   if (is_one_byte_) {

@@ -11,7 +11,7 @@
 #include "src/objects/fixed-array.h"
 #include "src/objects/objects.h"
 #include "src/objects/struct.h"
-#include "torque-generated/bit-fields-tq.h"
+#include "torque-generated/bit-fields.h"
 
 // Has to be the last include (doesn't have include guards):
 #include "src/objects/object-macros.h"
@@ -21,6 +21,8 @@ namespace internal {
 
 class BreakPoint;
 class BytecodeArray;
+
+#include "torque-generated/src/objects/debug-objects-tq.inc"
 
 // The DebugInfo class holds additional information for a function being
 // debugged.

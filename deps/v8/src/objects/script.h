@@ -11,7 +11,7 @@
 #include "src/objects/fixed-array.h"
 #include "src/objects/objects.h"
 #include "src/objects/struct.h"
-#include "torque-generated/bit-fields-tq.h"
+#include "torque-generated/bit-fields.h"
 
 // Has to be the last include (doesn't have include guards):
 #include "src/objects/object-macros.h"
@@ -19,6 +19,8 @@
 namespace v8 {
 
 namespace internal {
+
+#include "torque-generated/src/objects/script-tq.inc"
 
 // Script describes a script which has been added to the VM.
 class Script : public TorqueGeneratedScript<Script, Struct> {

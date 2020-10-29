@@ -6,7 +6,7 @@
 #define V8_OBJECTS_STACK_FRAME_INFO_H_
 
 #include "src/objects/struct.h"
-#include "torque-generated/bit-fields-tq.h"
+#include "torque-generated/bit-fields.h"
 
 // Has to be the last include (doesn't have include guards):
 #include "src/objects/object-macros.h"
@@ -16,6 +16,8 @@ namespace internal {
 
 class FrameArray;
 class WasmInstanceObject;
+
+#include "torque-generated/src/objects/stack-frame-info-tq.inc"
 
 class StackFrameInfo
     : public TorqueGeneratedStackFrameInfo<StackFrameInfo, Struct> {

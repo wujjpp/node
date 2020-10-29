@@ -287,7 +287,7 @@ base::Optional<SharedFunctionInfoRef> JSInliner::DetermineCallTarget(
   // calls whenever the target is a constant function object, as follows:
   //  - JSCall(target:constant, receiver, args..., vector)
   //  - JSConstruct(target:constant, new.target, args..., vector)
-  if (match.HasValue() && match.Ref(broker()).IsJSFunction()) {
+  if (match.HasResolvedValue() && match.Ref(broker()).IsJSFunction()) {
     JSFunctionRef function = match.Ref(broker()).AsJSFunction();
 
     // The function might have not been called yet.
@@ -338,7 +338,7 @@ FeedbackVectorRef JSInliner::DetermineCallContext(Node* node,
   Node* target = node->InputAt(JSCallOrConstructNode::TargetIndex());
   HeapObjectMatcher match(target);
 
-  if (match.HasValue() && match.Ref(broker()).IsJSFunction()) {
+  if (match.HasResolvedValue() && match.Ref(broker()).IsJSFunction()) {
     JSFunctionRef function = match.Ref(broker()).AsJSFunction();
     // This was already ensured by DetermineCallTarget
     CHECK(function.has_feedback_vector());
@@ -470,8 +470,8 @@ Reduction JSInliner::ReduceJSCall(Node* node) {
       CallFrequency frequency = call.frequency();
       BuildGraphFromBytecode(broker(), zone(), *shared_info, feedback_vector,
                              BailoutId::None(), jsgraph(), frequency,
-                             source_positions_, inlining_id, flags,
-                             &info_->tick_counter());
+                             source_positions_, inlining_id, info_->code_kind(),
+                             flags, &info_->tick_counter());
     }
 
     // Extract the inlinee start/end nodes.

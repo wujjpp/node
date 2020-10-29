@@ -18,7 +18,9 @@
 #include "src/objects/dictionary.h"
 #include "src/objects/js-array.h"
 #include "src/objects/js-regexp.h"
+#include "src/objects/shared-function-info.h"
 #include "src/objects/string.h"
+#include "torque-generated/class-forward-declarations.h"
 
 namespace v8 {
 namespace internal {
@@ -69,6 +71,7 @@ class WasmCapiFunctionData;
 class WasmExportedFunctionData;
 class WasmJSFunctionData;
 class WeakCell;
+
 enum class SharedFlag : uint8_t;
 enum class InitializedFlag : uint8_t;
 
@@ -112,7 +115,7 @@ class V8_EXPORT_PRIVATE Factory : public FactoryBase<Factory> {
     return handle(obj, isolate());
   }
 
-#include "torque-generated/factory-tq.inc"
+#include "torque-generated/factory.inc"
 
   Handle<Oddball> NewOddball(Handle<Map> map, const char* to_string,
                              Handle<Object> to_number, const char* type_of,
@@ -837,11 +840,6 @@ class V8_EXPORT_PRIVATE Factory : public FactoryBase<Factory> {
       return *this;
     }
 
-    CodeBuilder& set_immovable() {
-      is_movable_ = false;
-      return *this;
-    }
-
     CodeBuilder& set_is_turbofanned() {
       is_turbofanned_ = true;
       return *this;
@@ -888,7 +886,6 @@ class V8_EXPORT_PRIVATE Factory : public FactoryBase<Factory> {
     BasicBlockProfilerData* profiler_data_ = nullptr;
     bool is_executable_ = true;
     bool read_only_data_container_ = false;
-    bool is_movable_ = true;
     bool is_turbofanned_ = false;
     int stack_slots_ = 0;
   };
