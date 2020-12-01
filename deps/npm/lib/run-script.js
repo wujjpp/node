@@ -1,4 +1,5 @@
 const run = require('@npmcli/run-script')
+const { isServerPackage } = run
 const npm = require('./npm.js')
 const readJson = require('read-package-json-fast')
 const { resolve } = require('path')
@@ -45,7 +46,7 @@ const runScript = async (args) => {
 
   pkg.scripts = scripts
 
-  if (!scripts[event]) {
+  if (!Object.prototype.hasOwnProperty.call(scripts, event) && !(event === 'start' && await isServerPackage(path))) {
     if (npm.config.get('if-present'))
       return
 

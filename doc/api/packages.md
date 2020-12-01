@@ -5,6 +5,7 @@
 changes:
   - version:
     - v14.13.0
+    - v12.20.0
     pr-url: https://github.com/nodejs/node/pull/34718
     description: Add support for `"exports"` patterns.
   - version: v14.6.0
@@ -319,8 +320,6 @@ analogous to the exports field.
 
 ### Subpath patterns
 
-> Stability: 1 - Experimental
-
 For packages with a small number of exports or imports, we recommend
 explicitly listing each exports subpath entry. But for packages that have
 large numbers of subpaths, this might cause `package.json` bloat and
@@ -371,7 +370,9 @@ changes:
   - version: v15.1.0
     pr-url: https://github.com/nodejs/node/pull/35746
     description: Runtime deprecation.
-  - version: v14.13.0
+  - version:
+    - v14.13.0
+    - v12.20.0
     pr-url: https://github.com/nodejs/node/pull/34718
     description: Documentation-only deprecation.
 -->
